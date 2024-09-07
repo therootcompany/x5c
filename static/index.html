@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>x5c: Online x509 Parse-by-Query Certificate Decoder</title>
+        <link href="./mvp.css" rel="stylesheet" />
+    </head>
+    <body>
+        <main>
+            <h1>x509 Online Certificate Decoder</h1>
+            <table data-id="cert-summary"></table>
+            <form onsubmit="$fetchAndUpdateCertState(event)">
+                <textarea
+                    name="cert"
+                    rows="7"
+                    placeholder="Paste PEM, Base64, or Hex certificate"
+                    onkeyup="$resizeTextarea(event)"
+                    onchange="$resizeTextarea(event)"
+                >
+-----BEGIN CERTIFICATE-----
+MIIBQDCB86ADAgECAhRnJNjDOT2MzyPw0YgyhI2ziwS+NDAFBgMrZXAwFjEUMBIG
+A1UEAwwLZXhhbXBsZS5jb20wHhcNMjQwOTA3MDc1MDQ1WhcNMjUwOTA3MDc1MDQ1
+WjAWMRQwEgYDVQQDDAtleGFtcGxlLmNvbTAqMAUGAytlcAMhAFe8ERQZwaGP7UCi
+HDcKnCGI8EzOlqEcuGa502FzqDzdo1MwUTAdBgNVHQ4EFgQUcOjieH3j0OY4nrtP
+BdDO4XN/rLEwHwYDVR0jBBgwFoAUcOjieH3j0OY4nrtPBdDO4XN/rLEwDwYDVR0T
+AQH/BAUwAwEB/zAFBgMrZXADQQBFOO8xhfMbZ2iJbS/mgkOyund5/FVorMZsu/j5
+jCjcURccZOG6+gh1ahTGk20QmRLmE2Cf/+WTpfrAa5l6x6cN
+-----END CERTIFICATE-----</textarea
+                ><!--
+How this example cert was generated:
+
+openssl genpkey -algorithm ed25519 -out ed25519-key.pem
+openssl req -new -key ed25519-key.pem -out ed25519.csr -subj "/CN=example.com"
+openssl req -x509 -key ed25519-key.pem -in ed25519.csr -out ed25519-cert.pem -days 365 -sha256
+                --><br />
+                <input type="submit" value="Decode" />
+                &nbsp; &nbsp; &nbsp; &nbsp;
+                <a data-name="share" onclick="$copyHrefToClipboard(event)"
+                    >Copy Link 📋</a
+                >
+                &nbsp; &nbsp; &nbsp; &nbsp;
+                <a href="https://github.com/therootcompany/x5c"
+                    >Git Source ↗</a
+                >
+            </form>
+        </main>
+
+        <script>
+            console.info(`x5c v1.0.0 (2024-09-07)`);
+
+            let cacheMap = {};
+
+            function $(cssSelector, $parent = document) {
+                let $child = $parent.querySelector(cssSelector);
+                return $child;
+            }
+
+            function $$(cssSelector, $parent = document) {
+                let nodeList = $parent.querySelectorAll(cssSelector);
+                let $children = Array.from(nodeList);
+                return $children;
+            }
+
+            async function $resizeTextarea(event) {
+                // todo animate
+                let textarea = event.target.value;
+                let text = event.target.value;
+                let lines = text.split("\n");
+                let rows = Math.max(5, lines.length);
+                event.target.rows = rows;
+            }
+
+            async function $fetchAndUpdateCertState(event) {
+                event.preventDefault();
+
+                let formData = new FormData(event.target);
+                let cert = formData.get("cert");
+
+                void (await fetchAndUpdateCertState(cert));
+            }
+
+            function $copyHrefToClipboard(event) {
+                event.preventDefault();
+
+                const url = window.location.href;
+
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard
+                        .writeText(url)
+                        .then(() => {
+                            console.log("URL copied to clipboard.");
+                        })
+                        .catch((err) => {
+                            console.error("Failed to copy the URL: ", err);
+                        });
+                } else {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = url;
+                    textArea.style.position = "fixed"; // avoid scrolling to bottom
+                    textArea.style.opacity = "0"; // hidden
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+
+                    try {
+                        document.execCommand("copy");
+                        console.log("URL copied to clipboard.");
+                    } catch (err) {
+                        console.error("Failed to copy the URL: ", err);
+                    }
+
+                    document.body.removeChild(textArea);
+                }
+            }
+
+            function parseHash() {
+                let searchIndex = window.location.hash.indexOf("?");
+                let search = window.location.hash.slice(searchIndex);
+                let queryIter = new URLSearchParams(search);
+                let query = Object.fromEntries(queryIter);
+                return query;
+            }
+
+            async function fetchAndUpdateCertState(cert) {
+                cert = cert.trim();
+
+                if (cacheMap[cert]) {
+                    return cacheMap[cert];
+                }
+
+                let summary = await fetchCert({ cert }).catch(function (err) {
+                    window.alert("certificate was not decoded");
+                    throw err;
+                });
+                cacheMap[cert] = summary;
+
+                let queryIter = new URLSearchParams({ cert });
+                let search = queryIter.toString();
+                window.location.hash = `#/?${search}`;
+                for (let $link of $$('a[data-name="share"]')) {
+                    $link.href = location.href;
+                }
+                renderSummary(summary);
+            }
+
+            async function fetchCert(query) {
+                console.info(`GET /api/x509`, query);
+
+                let queryIter = new URLSearchParams(query);
+                let search = queryIter.toString();
+                let resp = await fetch(`/api/x509?${search}`);
+                let cert = await resp.json();
+                return cert;
+            }
+
+            function renderSummary(summary) {
+                console.info(`Certificate Summary:`, summary);
+
+                let table = $("[data-id='cert-summary']");
+                let html = `
+            <tr><th style="text-align: right;">Issuer</th><td style="text-align: left;">${summary.issuer}</td></tr>
+            <tr><th style="text-align: right;">Subject</th><td style="text-align: left;">${summary.subject}</td></tr>
+            <tr><th style="text-align: right;">Serial Number</th><td style="text-align: left;">${summary.serial_number}</td></tr>
+            <tr><th style="text-align: right;">Valid From</th><td style="text-align: left;">${summary.valid_from}</td></tr>
+            <tr><th style="text-align: right;">Valid To</th><td style="text-align: left;">${summary.valid_to}</td></tr>
+            <tr><th style="text-align: right;">SHA-1 Fingerprint</th><td style="text-align: left;">${summary.sha1_fingerprint}</td></tr>
+            <tr><th style="text-align: right;">SHA-256 Fingerprint</th><td style="text-align: left;">${summary.sha256_fingerprint}</td></tr>
+                `;
+
+                requestAnimationFrame(function () {
+                    table.innerHTML = html;
+                });
+            }
+
+            async function main() {
+                let query = parseHash();
+                console.info(`Initial Query:`, query);
+                if (query.cert) {
+                    $("textarea[name='cert']").value = query.cert;
+                }
+
+                $("textarea[name='cert']").dispatchEvent(new Event("change"));
+                $("form").dispatchEvent(new Event("submit"));
+            }
+
+            main().catch(function (err) {
+                console.error(`Main Error:`);
+                console.error(err);
+            });
+        </script>
+    </body>
+</html>
