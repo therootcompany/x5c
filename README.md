@@ -17,10 +17,11 @@ Note: until this is a paid service, there's no guarantee of uptime.
 ## Usage
 
 ```sh
-x5c-server --web-root ./public/ --port 8080
+x5c-server --web-root ./public/ --port 8080 --rate-limit 50
 ```
 
 -   `--web-root` can be used to override index.html
+-   `--rate-limit` limits the number of request per ip per 5m window
 
 ## Install
 
