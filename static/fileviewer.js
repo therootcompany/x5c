@@ -51,6 +51,10 @@ var FileViewer = {};
         if (!$file) {
             return;
         }
+        await FileViewer._decodeAndupdateContents($file);
+    };
+
+    FileViewer._decodeAndupdateContents = async function ($file) {
         let text = await FileViewer._decodeFileContents($file);
         if (FileViewer._contents) {
             FileViewer._contents.textContent = text;
@@ -84,16 +88,11 @@ var FileViewer = {};
         }
         if (FileViewer._fileInput) {
             FileViewer._fileInput.files = ev.dataTransfer.files;
+            FileViewer._fileInput.dispatchEvent(new Event("change"));
+            return;
         }
 
-        let text = await FileViewer._decodeFileContents($file);
-        if (FileViewer._contents) {
-            FileViewer._contents.textContent = text;
-        }
-        if (FileViewer._textarea) {
-            FileViewer._textarea.value = text;
-            FileViewer._textarea.dispatchEvent(new Event("change"));
-        }
+        await FileViewer._decodeAndupdateContents($file);
     });
 
     FileViewer.init = function ({
