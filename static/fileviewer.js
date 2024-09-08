@@ -26,6 +26,12 @@ var FileViewer = {};
                 let buffer = e.target.result;
                 resolve(buffer);
             };
+            reader.onerror = function (e) {
+                console.warn("[FileViewer] Error: failed to read file:");
+                console.warn(e.message);
+                let bytes = new Uint8Array(0);
+                resolve(bytes.buffer);
+            };
             reader.readAsArrayBuffer(file);
         }
 
