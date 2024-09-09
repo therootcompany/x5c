@@ -28,7 +28,9 @@ var FileViewer = {};
         if (!$file) {
             return;
         }
-        await FileViewer._decodeAndupdateContents($file);
+
+        let text = await FileViewer._decodeFileContents($file);
+        FileViewer._updateContents(text);
     };
 
     FileViewer._$dragover = function (ev) {
@@ -60,18 +62,8 @@ var FileViewer = {};
             return;
         }
 
-        await FileViewer._decodeAndupdateContents($file);
-    };
-
-    FileViewer._decodeAndupdateContents = async function ($file) {
         let text = await FileViewer._decodeFileContents($file);
-        if (FileViewer._contents) {
-            FileViewer._contents.textContent = text;
-        }
-        if (FileViewer._textarea) {
-            FileViewer._textarea.value = text;
-            FileViewer._textarea.dispatchEvent(new Event("change"));
-        }
+        FileViewer._updateContents(text);
     };
 
     FileViewer._decodeFileContents = async function (file) {
@@ -99,6 +91,16 @@ var FileViewer = {};
             text = FileViewer._bufferToHex(buffer);
         }
         return text;
+    };
+
+    FileViewer._updateContents = async function (text) {
+        if (FileViewer._contents) {
+            FileViewer._contents.textContent = text;
+        }
+        if (FileViewer._textarea) {
+            FileViewer._textarea.value = text;
+            FileViewer._textarea.dispatchEvent(new Event("change"));
+        }
     };
 
     FileViewer._strictTextDecoder = new TextDecoder("utf-8", {
