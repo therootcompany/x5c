@@ -86,7 +86,7 @@ openssl req -x509 -key ed25519-key.pem -in ed25519.csr -out ed25519-cert.pem -da
 
             async function $resizeAndDecodeTextarea(event) {
                 $resizeTextarea(event);
-                $("form").dispatchEvent(new Event("submit"));
+                $("form").requestSubmit();
             }
 
             async function $fetchAndUpdateCertState(event) {
